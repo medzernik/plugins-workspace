@@ -5,6 +5,7 @@
 use fern::FormatCallback;
 use log::{logger, RecordBuilder};
 use log::{LevelFilter, Record};
+use regex::Regex;
 use serde::Serialize;
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use std::borrow::Cow;
@@ -15,15 +16,13 @@ use std::{
     iter::FromIterator,
     path::{Path, PathBuf},
 };
+use strip_ansi_escapes;
 use tauri::{
     plugin::{self, TauriPlugin},
     Manager, Runtime,
 };
-use regex::Regex;
-use strip_ansi_escapes;
 
 pub use fern;
-
 
 const DEFAULT_MAX_FILE_SIZE: u128 = 40000;
 const DEFAULT_ROTATION_STRATEGY: RotationStrategy = RotationStrategy::KeepOne;
@@ -142,17 +141,16 @@ fn log(
     }
     builder.key_values(&kv);
 
-    
-
-    if location.contains("folder"){
-        let re = Regex::new(r"/[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g").unwrap();
+    if location.contains("folder") {
+        let re = Regex::new(
+            r"/[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g",
+        )
+        .unwrap();
         let message_fix = &*re.replace_all(&message, "");
-        
-        
+
         let bytes_colors = message.as_bytes();
         let plain_bytes = strip_ansi_escapes::strip(bytes_colors).unwrap();
         let plain_bytes = String::from_utf8_lossy(&plain_bytes);
-        
 
         //logger().log(&builder.args(format_args!("{plain_bytes}")).build());
     } else {
@@ -243,99 +241,97 @@ impl Builder {
 
     #[cfg(feature = "colored")]
     pub fn with_colors(self, colors: fern::colors::ColoredLevelConfig) -> Self {
-        
-        
-        if self.location.contains("folder"){
-          
-            let format =
-            time::format_description::parse("[[[year]-[month]-[day]][[[hour]:[minute]:[second]]")
-                .unwrap();
+        if self.location.contains("folder") {
+            let format = time::format_description::parse(
+                "[[[year]-[month]-[day]][[[hour]:[minute]:[second]]",
+            )
+            .unwrap();
             self.format(move |out, message, record| {
-            out.finish(format_args!(
-                "{}[{}][{}] {}",
-                time::OffsetDateTime::now_utc().format(&format).unwrap(),
-                record.target(),
-                
-                record.level(),
-                message
-            ))
-        })
-        } else {
-            let format =
-            time::format_description::parse("[[[year]-[month]-[day]][[[hour]:[minute]:[second]]")
-                .unwrap();
-            self.format(move |out, message, record| {
-            out.finish(format_args!(
-                "{}[{}][{}] {}",
-                time::OffsetDateTime::now_utc().format(&format).unwrap(),
-                record.target(),
-                
-                colors.color(record.level()),
-                message
-            ))
-        
-    }
-
-    pub fn build<R: Runtime>(mut self) -> TauriPlugin<R> {
-        plugin::Builder::new("log")
-            .invoke_handler(tauri::generate_handler![log])
-            .setup(move |app_handle| {
-                let app_name = &app_handle.package_info().name;
-
-                // setup targets
-                for target in &self.targets {
-                    self.dispatch = self.dispatch.chain(match target {
-                        LogTarget::Stdout => fern::Output::from(std::io::stdout()),
-                        LogTarget::Stderr => fern::Output::from(std::io::stderr()),
-                        LogTarget::Folder(path) => {
-                            if !path.exists() {
-                                fs::create_dir_all(path).unwrap();
-                            }
-
-                            fern::log_file(get_log_file_path(
-                                &path,
-                                app_name,
-                                &self.rotation_strategy,
-                                self.max_file_size,
-                            )?)?
-                            .into()
-                        }
-                        LogTarget::LogDir => {
-                            let path = app_handle.path_resolver().app_log_dir().unwrap();
-                            if !path.exists() {
-                                fs::create_dir_all(&path).unwrap();
-                            }
-
-                            fern::log_file(get_log_file_path(
-                                &path,
-                                app_name,
-                                &self.rotation_strategy,
-                                self.max_file_size,
-                            )?)?
-                            .into()
-                        }
-                        LogTarget::Webview => {
-                            let app_handle = app_handle.clone();
-
-                            fern::Output::call(move |record| {
-                                let payload = RecordPayload {
-                                    message: record.args().to_string(),
-                                    level: record.level().into(),
-                                };
-                                let app_handle = app_handle.clone();
-                                tauri::async_runtime::spawn(async move {
-                                    app_handle.emit_all("log://log", payload).unwrap();
-                                });
-                            })
-                        }
-                    });
-                }
-
-                self.dispatch.apply()?;
-
-                Ok(())
+                out.finish(format_args!(
+                    "{}[{}][{}] {}",
+                    time::OffsetDateTime::now_utc().format(&format).unwrap(),
+                    record.target(),
+                    record.level(),
+                    message
+                ))
             })
-            .build()
+        } else {
+            let format = time::format_description::parse(
+                "[[[year]-[month]-[day]][[[hour]:[minute]:[second]]",
+            )
+            .unwrap();
+            self.format(move |out, message, record| {
+                out.finish(format_args!(
+                    "{}[{}][{}] {}",
+                    time::OffsetDateTime::now_utc().format(&format).unwrap(),
+                    record.target(),
+                    colors.color(record.level()),
+                    message
+                ))
+            })
+        }
+
+        pub fn build<R: Runtime>(mut self) -> TauriPlugin<R> {
+            plugin::Builder::new("log")
+                .invoke_handler(tauri::generate_handler![log])
+                .setup(move |app_handle| {
+                    let app_name = &app_handle.package_info().name;
+
+                    // setup targets
+                    for target in &self.targets {
+                        self.dispatch = self.dispatch.chain(match target {
+                            LogTarget::Stdout => fern::Output::from(std::io::stdout()),
+                            LogTarget::Stderr => fern::Output::from(std::io::stderr()),
+                            LogTarget::Folder(path) => {
+                                if !path.exists() {
+                                    fs::create_dir_all(path).unwrap();
+                                }
+
+                                fern::log_file(get_log_file_path(
+                                    &path,
+                                    app_name,
+                                    &self.rotation_strategy,
+                                    self.max_file_size,
+                                )?)?
+                                .into()
+                            }
+                            LogTarget::LogDir => {
+                                let path = app_handle.path_resolver().app_log_dir().unwrap();
+                                if !path.exists() {
+                                    fs::create_dir_all(&path).unwrap();
+                                }
+
+                                fern::log_file(get_log_file_path(
+                                    &path,
+                                    app_name,
+                                    &self.rotation_strategy,
+                                    self.max_file_size,
+                                )?)?
+                                .into()
+                            }
+                            LogTarget::Webview => {
+                                let app_handle = app_handle.clone();
+
+                                fern::Output::call(move |record| {
+                                    let payload = RecordPayload {
+                                        message: record.args().to_string(),
+                                        level: record.level().into(),
+                                    };
+                                    let app_handle = app_handle.clone();
+                                    tauri::async_runtime::spawn(async move {
+                                        app_handle.emit_all("log://log", payload).unwrap();
+                                    });
+                                })
+                            }
+                        });
+                    }
+
+                    self.dispatch.apply()?;
+
+                    Ok(())
+                })
+                .build()
+        }
     }
 }
 
