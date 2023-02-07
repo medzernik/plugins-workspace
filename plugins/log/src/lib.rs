@@ -140,6 +140,8 @@ fn log(
     }
     builder.key_values(&kv);
 
+    println!("location");
+
     if location == "folder"{
     logger().log(&builder.args(format_args!("{message}")).build());
     } else {
