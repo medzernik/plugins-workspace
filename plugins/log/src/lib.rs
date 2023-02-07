@@ -20,8 +20,10 @@ use tauri::{
     Manager, Runtime,
 };
 use regex::Regex;
+use strip_ansi_escapes;
 
 pub use fern;
+
 
 const DEFAULT_MAX_FILE_SIZE: u128 = 40000;
 const DEFAULT_ROTATION_STRATEGY: RotationStrategy = RotationStrategy::KeepOne;
@@ -145,7 +147,14 @@ fn log(
     if location.contains("folder"){
         let re = Regex::new(r"/[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g").unwrap();
         let message_fix = &*re.replace_all(&message, "");
-        logger().log(&builder.args(format_args!("{message_fix}")).build());
+        
+        
+        let bytes_colors = message.as_bytes();
+        let plain_bytes = strip_ansi_escapes::strip(bytes_colors).unwrap();
+        let plain_bytes = String::from_utf8_lossy(&plain_bytes);
+        
+
+        logger().log(&builder.args(format_args!("{plain_bytes}")).build());
     } else {
         logger().log(&builder.args(format_args!("{message}")).build());
     }

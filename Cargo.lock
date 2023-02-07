@@ -88,15 +88,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ansi-stripper"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5accf41d4c2b9a6ce33aa94d3124c0c83b48bf0ef02b3fe9ff9a1d52052f41c8"
-dependencies = [
- "vte",
-]
-
-[[package]]
 name = "anyhow"
 version = "1.0.68"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4011,6 +4002,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "strip-ansi-escapes"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "011cbb39cf7c1f62871aea3cc46e5817b0937b49e9447370c93cacbe93a766d8"
+dependencies = [
+ "vte",
+]
+
+[[package]]
 name = "stronghold-derive"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4344,7 +4344,6 @@ dependencies = [
 name = "tauri-plugin-log"
 version = "0.1.0"
 dependencies = [
- "ansi-stripper",
  "byte-unit",
  "fern",
  "log",
@@ -4352,6 +4351,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_repr",
+ "strip-ansi-escapes",
  "tauri",
  "time 0.3.17",
 ]
