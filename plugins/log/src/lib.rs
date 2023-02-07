@@ -140,9 +140,9 @@ fn log(
     }
     builder.key_values(&kv);
 
-    println!("location");
+    
 
-    if location == "folder"{
+    if location.contains("folder"){
     logger().log(&builder.args(format_args!("{message}")).build());
     } else {
         let re = Regex::new(r"/[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g").unwrap();
