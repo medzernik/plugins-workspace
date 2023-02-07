@@ -245,7 +245,7 @@ impl Builder {
     pub fn with_colors(self, colors: fern::colors::ColoredLevelConfig) -> Self {
         
         
-        if location.contains("folder"){
+        if self.location.contains("folder"){
           
             let format =
             time::format_description::parse("[[[year]-[month]-[day]][[[hour]:[minute]:[second]]")
