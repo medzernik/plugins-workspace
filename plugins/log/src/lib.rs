@@ -154,7 +154,7 @@ fn log(
         let plain_bytes = String::from_utf8_lossy(&plain_bytes);
         
 
-        logger().log(&builder.args(format_args!("{plain_bytes}")).build());
+        //logger().log(&builder.args(format_args!("{plain_bytes}")).build());
     } else {
         logger().log(&builder.args(format_args!("{message}")).build());
     }
