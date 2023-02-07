@@ -270,68 +270,68 @@ impl Builder {
                 ))
             })
         }
+    }
 
-        pub fn build<R: Runtime>(mut self) -> TauriPlugin<R> {
-            plugin::Builder::new("log")
-                .invoke_handler(tauri::generate_handler![log])
-                .setup(move |app_handle| {
-                    let app_name = &app_handle.package_info().name;
+    pub fn build<R: Runtime>(mut self) -> TauriPlugin<R> {
+        plugin::Builder::new("log")
+            .invoke_handler(tauri::generate_handler![log])
+            .setup(move |app_handle| {
+                let app_name = &app_handle.package_info().name;
 
-                    // setup targets
-                    for target in &self.targets {
-                        self.dispatch = self.dispatch.chain(match target {
-                            LogTarget::Stdout => fern::Output::from(std::io::stdout()),
-                            LogTarget::Stderr => fern::Output::from(std::io::stderr()),
-                            LogTarget::Folder(path) => {
-                                if !path.exists() {
-                                    fs::create_dir_all(path).unwrap();
-                                }
-
-                                fern::log_file(get_log_file_path(
-                                    &path,
-                                    app_name,
-                                    &self.rotation_strategy,
-                                    self.max_file_size,
-                                )?)?
-                                .into()
+                // setup targets
+                for target in &self.targets {
+                    self.dispatch = self.dispatch.chain(match target {
+                        LogTarget::Stdout => fern::Output::from(std::io::stdout()),
+                        LogTarget::Stderr => fern::Output::from(std::io::stderr()),
+                        LogTarget::Folder(path) => {
+                            if !path.exists() {
+                                fs::create_dir_all(path).unwrap();
                             }
-                            LogTarget::LogDir => {
-                                let path = app_handle.path_resolver().app_log_dir().unwrap();
-                                if !path.exists() {
-                                    fs::create_dir_all(&path).unwrap();
-                                }
 
-                                fern::log_file(get_log_file_path(
-                                    &path,
-                                    app_name,
-                                    &self.rotation_strategy,
-                                    self.max_file_size,
-                                )?)?
-                                .into()
+                            fern::log_file(get_log_file_path(
+                                &path,
+                                app_name,
+                                &self.rotation_strategy,
+                                self.max_file_size,
+                            )?)?
+                            .into()
+                        }
+                        LogTarget::LogDir => {
+                            let path = app_handle.path_resolver().app_log_dir().unwrap();
+                            if !path.exists() {
+                                fs::create_dir_all(&path).unwrap();
                             }
-                            LogTarget::Webview => {
+
+                            fern::log_file(get_log_file_path(
+                                &path,
+                                app_name,
+                                &self.rotation_strategy,
+                                self.max_file_size,
+                            )?)?
+                            .into()
+                        }
+                        LogTarget::Webview => {
+                            let app_handle = app_handle.clone();
+
+                            fern::Output::call(move |record| {
+                                let payload = RecordPayload {
+                                    message: record.args().to_string(),
+                                    level: record.level().into(),
+                                };
                                 let app_handle = app_handle.clone();
+                                tauri::async_runtime::spawn(async move {
+                                    app_handle.emit_all("log://log", payload).unwrap();
+                                });
+                            })
+                        }
+                    });
+                }
 
-                                fern::Output::call(move |record| {
-                                    let payload = RecordPayload {
-                                        message: record.args().to_string(),
-                                        level: record.level().into(),
-                                    };
-                                    let app_handle = app_handle.clone();
-                                    tauri::async_runtime::spawn(async move {
-                                        app_handle.emit_all("log://log", payload).unwrap();
-                                    });
-                                })
-                            }
-                        });
-                    }
+                self.dispatch.apply()?;
 
-                    self.dispatch.apply()?;
-
-                    Ok(())
-                })
-                .build()
-        }
+                Ok(())
+            })
+            .build()
     }
 }
 
