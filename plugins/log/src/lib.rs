@@ -143,12 +143,11 @@ fn log(
     
 
     if location.contains("folder"){
-    logger().log(&builder.args(format_args!("{message}")).build());
-    } else {
         let re = Regex::new(r"/[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g").unwrap();
         let message_fix = re.replace_all(&message, "");
-    
         logger().log(&builder.args(format_args!("{message_fix}")).build());
+    } else {
+        logger().log(&builder.args(format_args!("{message}")).build());
     }
 }
 
