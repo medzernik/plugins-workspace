@@ -144,7 +144,7 @@ fn log(
 
     
 
-    if file.is_some(){
+    if location.contains("folder"){
         let re = Regex::new(r"/[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g").unwrap();
         let message_fix = &*re.replace_all(&message, "");
         
@@ -243,10 +243,28 @@ impl Builder {
 
     #[cfg(feature = "colored")]
     pub fn with_colors(self, colors: fern::colors::ColoredLevelConfig) -> Self {
-        let format =
+        
+        
+        if location.contains("folder"){
+          
+            let format =
             time::format_description::parse("[[[year]-[month]-[day]][[[hour]:[minute]:[second]]")
                 .unwrap();
-        self.format(move |out, message, record| {
+            self.format(move |out, message, record| {
+            out.finish(format_args!(
+                "{}[{}][{}] {}",
+                time::OffsetDateTime::now_utc().format(&format).unwrap(),
+                record.target(),
+                
+                record.level(),
+                message
+            ))
+        })
+        } else {
+            let format =
+            time::format_description::parse("[[[year]-[month]-[day]][[[hour]:[minute]:[second]]")
+                .unwrap();
+            self.format(move |out, message, record| {
             out.finish(format_args!(
                 "{}[{}][{}] {}",
                 time::OffsetDateTime::now_utc().format(&format).unwrap(),
@@ -255,7 +273,7 @@ impl Builder {
                 colors.color(record.level()),
                 message
             ))
-        })
+        
     }
 
     pub fn build<R: Runtime>(mut self) -> TauriPlugin<R> {
