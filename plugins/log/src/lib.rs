@@ -141,7 +141,7 @@ fn log(
     }
     builder.key_values(&kv);
 
-    if location.contains("folder") {
+    // if location.contains("folder") {
         let re = Regex::new(
             r"/[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g",
         )
@@ -153,9 +153,9 @@ fn log(
         let plain_bytes = String::from_utf8_lossy(&plain_bytes);
 
         //logger().log(&builder.args(format_args!("{plain_bytes}")).build());
-    } else {
-        logger().log(&builder.args(format_args!("{message}")).build());
-    }
+    // } else {
+        logger().log(&builder.args(format_args!("{message_fix}")).build());
+    // }
 }
 
 pub struct Builder {
@@ -272,68 +272,69 @@ impl Builder {
         }
     }
 
-    pub fn build<R: Runtime>(mut self) -> TauriPlugin<R> {
-        plugin::Builder::new("log")
-            .invoke_handler(tauri::generate_handler![log])
-            .setup(move |app_handle| {
-                let app_name = &app_handle.package_info().name;
+        pub fn build<R: Runtime>(mut self) -> TauriPlugin<R> {
+            plugin::Builder::new("log")
+                .invoke_handler(tauri::generate_handler![log])
+                .setup(move |app_handle| {
+                    let app_name = &app_handle.package_info().name;
 
-                // setup targets
-                for target in &self.targets {
-                    self.dispatch = self.dispatch.chain(match target {
-                        LogTarget::Stdout => fern::Output::from(std::io::stdout()),
-                        LogTarget::Stderr => fern::Output::from(std::io::stderr()),
-                        LogTarget::Folder(path) => {
-                            if !path.exists() {
-                                fs::create_dir_all(path).unwrap();
+                    // setup targets
+                    for target in &self.targets {
+                        self.dispatch = self.dispatch.chain(match target {
+                            LogTarget::Stdout => fern::Output::from(std::io::stdout()),
+                            LogTarget::Stderr => fern::Output::from(std::io::stderr()),
+                            LogTarget::Folder(path) => {
+                                if !path.exists() {
+                                    fs::create_dir_all(path).unwrap();
+                                }
+
+                                fern::log_file(get_log_file_path(
+                                    &path,
+                                    app_name,
+                                    &self.rotation_strategy,
+                                    self.max_file_size,
+                                )?)?
+                                .into()
                             }
+                            LogTarget::LogDir => {
+                                let path = app_handle.path_resolver().app_log_dir().unwrap();
+                                if !path.exists() {
+                                    fs::create_dir_all(&path).unwrap();
+                                }
 
-                            fern::log_file(get_log_file_path(
-                                &path,
-                                app_name,
-                                &self.rotation_strategy,
-                                self.max_file_size,
-                            )?)?
-                            .into()
-                        }
-                        LogTarget::LogDir => {
-                            let path = app_handle.path_resolver().app_log_dir().unwrap();
-                            if !path.exists() {
-                                fs::create_dir_all(&path).unwrap();
+                                fern::log_file(get_log_file_path(
+                                    &path,
+                                    app_name,
+                                    &self.rotation_strategy,
+                                    self.max_file_size,
+                                )?)?
+                                .into()
                             }
-
-                            fern::log_file(get_log_file_path(
-                                &path,
-                                app_name,
-                                &self.rotation_strategy,
-                                self.max_file_size,
-                            )?)?
-                            .into()
-                        }
-                        LogTarget::Webview => {
-                            let app_handle = app_handle.clone();
-
-                            fern::Output::call(move |record| {
-                                let payload = RecordPayload {
-                                    message: record.args().to_string(),
-                                    level: record.level().into(),
-                                };
+                            LogTarget::Webview => {
                                 let app_handle = app_handle.clone();
-                                tauri::async_runtime::spawn(async move {
-                                    app_handle.emit_all("log://log", payload).unwrap();
-                                });
-                            })
-                        }
-                    });
-                }
 
-                self.dispatch.apply()?;
+                                fern::Output::call(move |record| {
+                                    let payload = RecordPayload {
+                                        message: record.args().to_string(),
+                                        level: record.level().into(),
+                                    };
+                                    let app_handle = app_handle.clone();
+                                    tauri::async_runtime::spawn(async move {
+                                        app_handle.emit_all("log://log", payload).unwrap();
+                                    });
+                                })
+                            }
+                        });
+                    }
 
-                Ok(())
-            })
-            .build()
+                    self.dispatch.apply()?;
+
+                    Ok(())
+                })
+                .build()
+        }
     }
-}
+
 
 fn get_log_file_path(
     dir: &impl AsRef<Path>,
