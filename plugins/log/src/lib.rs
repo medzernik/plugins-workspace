@@ -154,7 +154,7 @@ fn log(
 
     //logger().log(&builder.args(format_args!("{plain_bytes}")).build());
     // } else {
-    logger().log(&builder.args(format_args!("{message_fix}")).build());
+    logger().log(&builder.args(format_args!("{plain_bytes}")).build());
     // }
 }
 
